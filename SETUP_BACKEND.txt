@@ -1,0 +1,99 @@
+🛡️ QUISHGUARD - BACKEND SETUP GUIDE
+=====================================
+
+Your API key is already configured in .env ✓
+
+Now you need to choose ONE of these options to run the backend:
+
+═══════════════════════════════════════════════════════════════════════════════
+
+OPTION A: EASIEST - Use Online Render/Replit (No installation needed)
+────────────────────────────────────────────────────────────────────────
+
+If you want zero setup:
+1. Deploy QuishGuard to Render.com or Replit.com (free tier)
+2. Update the frontend API URL to point to your hosted backend
+3. Done!
+
+═══════════════════════════════════════════════════════════════════════════════
+
+OPTION B: RECOMMENDED - Local Python Installation
+───────────────────────────────────────────────────
+
+STEP 1: Install Python 3.11+
+  Windows:
+    → Download: https://www.python.org/downloads/
+    → Run installer (CHECK "Add Python to PATH")
+    → Verify: Open PowerShell, type: python --version
+  
+  Mac:
+    brew install python3
+  
+  Linux:
+    sudo apt-get install python3 python3-pip
+
+STEP 2: Install Dependencies
+  Open PowerShell/Terminal in d:\QuishGuard folder:
+  
+  cd d:\QuishGuard\backend
+  pip install -r requirements.txt
+  
+  This will take 2-3 minutes (installs FastAPI, OpenCV, Google Gemini, etc.)
+
+STEP 3: Run the Backend
+  cd d:\QuishGuard\backend
+  python main.py
+  
+  You should see:
+  ✓ Uvicorn running on http://0.0.0.0:8000
+  
+STEP 4: Keep running & open frontend
+  Leave that terminal open (backend running in background)
+  Then open: file:///d:/QuishGuard/frontend/index.html in your browser
+  
+STEP 5: Test!
+  Try pasting: https://paypal.com
+  Or: https://paytm-verify.xyz/login
+  
+  You should get instant fraud verdicts!
+
+═══════════════════════════════════════════════════════════════════════════════
+
+OPTION C: Docker (Advanced - if you prefer containers)
+──────────────────────────────────────
+
+1. Install Docker Desktop: https://www.docker.com/products/docker-desktop
+2. Open PowerShell in d:\QuishGuard
+3. Run: docker-compose up
+4. Open: http://localhost:3000
+
+═══════════════════════════════════════════════════════════════════════════════
+
+CURRENT STATUS
+──────────────
+✓ Frontend: Ready to use (file:///d:/QuishGuard/frontend/index.html)
+✓ API Key: Configured (GOOGLE_API_KEY=AIzaSyBGWqog...)
+✗ Backend: NOT RUNNING (need to install Python and start it)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+QUICK START (Option B in 5 minutes):
+
+1. Download Python from python.org (if you don't have it)
+2. Install it (CHECK "Add to PATH")
+3. Open PowerShell, navigate to d:\QuishGuard\backend
+4. Run: pip install -r requirements.txt
+5. Run: python main.py
+6. Go to: file:///d:/QuishGuard/frontend/index.html
+7. Paste a link and analyze it!
+
+═══════════════════════════════════════════════════════════════════════════════
+
+Questions?
+
+• Frontend not loading? Try: file:///d:/QuishGuard/frontend/index.html
+• Backend not starting? Make sure Python is installed and in PATH
+• Can't connect? Backend needs to be running on http://localhost:8000
+• API key issues? Check .env file has GOOGLE_API_KEY set
+
+═══════════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuishGuard - QR Code Security Scanner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            padding-top: 20px;
+        }
+        
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            margin-bottom: 20px;
+        }
+        
+        .tab-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .tab-button {
+            padding: 12px 20px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 1em;
+            color: #999;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .tab-button.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .upload-zone {
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: #f9f9ff;
+        }
+        
+        .upload-zone:hover {
+            border-color: #764ba2;
+            background: #f3f0ff;
+        }
+        
+        .upload-zone.drag-over {
+            border-color: #764ba2;
+            background: #f3f0ff;
+        }
+        
+        .upload-zone p {
+            color: #667eea;
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+        
+        .upload-zone small {
+            color: #999;
+        }
+        
+        #imageInput {
+            display: none;
+        }
+        
+        .text-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.9em;
+            resize: vertical;
+            min-height: 100px;
+            margin-bottom: 20px;
+            transition: border 0.3s ease;
+        }
+        
+        .text-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .analyze-button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .analyze-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .analyze-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 30px;
+            color: #667eea;
+        }
+        
+        .spinner {
+            border: 4px solid #f0f0f0;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .result {
+            display: none;
+        }
+        
+        .result.show {
+            display: block;
+        }
+        
+        .verdict-card {
+            border-left: 5px solid;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .verdict-card.low {
+            border-left-color: #4caf50;
+            background: #f1f8f6;
+        }
+        
+        .verdict-card.medium {
+            border-left-color: #ff9800;
+            background: #fef7f1;
+        }
+        
+        .verdict-card.high {
+            border-left-color: #f44336;
+            background: #fef1f0;
+        }
+        
+        .verdict-card.critical {
+            border-left-color: #8b0000;
+            background: #fef0f0;
+        }
+        
+        .risk-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+        }
+        
+        .risk-badge.low {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .risk-badge.medium {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .risk-badge.high {
+            background: #f44336;
+            color: white;
+        }
+        
+        .risk-badge.critical {
+            background: #8b0000;
+            color: white;
+        }
+        
+        .verdict-title {
+            font-weight: 600;
+            font-size: 1.1em;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .verdict-explanation {
+            color: #555;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+        
+        .recommendation {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-style: italic;
+            color: #667eea;
+        }
+        
+        .red-flags {
+            margin-top: 15px;
+        }
+        
+        .red-flags h4 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 0.95em;
+        }
+        
+        .flag-item {
+            background: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+            color: #666;
+            display: flex;
+            align-items: center;
+        }
+        
+        .flag-item:before {
+            content: "⚠";
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        
+        .decoded-content {
+            background: #f9f9f9;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 15px;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 0.85em;
+            color: #666;
+        }
+        
+        .decoded-label {
+            font-size: 0.85em;
+            color: #999;
+            margin-bottom: 5px;
+        }
+        
+        .reset-button {
+            width: 100%;
+            padding: 12px;
+            background: #f0f0f0;
+            color: #333;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background 0.3s ease;
+            margin-top: 15px;
+        }
+        
+        .reset-button:hover {
+            background: #e0e0e0;
+        }
+        
+        .error-message {
+            background: #ffebee;
+            border: 1px solid #ef5350;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛡️ QuishGuard</h1>
+            <p>Scan before you tap. Decode. Analyze. Stay safe.</p>
+        </header>
+        
+        <div class="card">
+            <div class="tab-buttons">
+                <button class="tab-button active" data-tab="upload">Upload QR Image</button>
+                <button class="tab-button" data-tab="paste">Paste Link</button>
+            </div>
+            
+            <!-- Upload Tab -->
+            <div id="upload" class="tab-content active">
+                <div class="upload-zone" id="uploadZone">
+                    <p>📱 Drop your QR code image here</p>
+                    <small>or click to browse (PNG, JPG, GIF)</small>
+                </div>
+                <input type="file" id="imageInput" accept="image/*">
+                <button class="analyze-button" id="uploadButton" style="margin-top: 20px;">Analyze QR Code</button>
+            </div>
+            
+            <!-- Paste Link Tab -->
+            <div id="paste" class="tab-content">
+                <textarea class="text-input" id="linkInput" placeholder="Paste a UPI link (upi://pay?...) or URL (https://...)"></textarea>
+                <button class="analyze-button" id="pasteButton">Analyze Link</button>
+            </div>
+            
+            <!-- Loading State -->
+            <div class="loading" id="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>Analyzing...</p>
+            </div>
+            
+            <!-- Error State -->
+            <div id="errorMessage" class="error-message" style="display: none;"></div>
+            
+            <!-- Results -->
+            <div class="result" id="results">
+                <div id="verdictContainer"></div>
+                <button class="reset-button" id="resetButton">← Analyze Another QR</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Set API URL - try environment first, fallback to localhost for local dev
+        let API_URL = 'http://localhost:8000';
+        try {
+            if (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL) {
+                API_URL = process.env.REACT_APP_API_URL;
+            }
+        } catch (e) {
+            // Environment not available, use default
+        }
+        
+        // Tab switching
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+                
+                button.classList.add('active');
+                document.getElementById(button.dataset.tab).classList.add('active');
+                
+                hideError();
+            });
+        });
+        
+        // File upload handling
+        const uploadZone = document.getElementById('uploadZone');
+        const imageInput = document.getElementById('imageInput');
+        
+        uploadZone.addEventListener('click', () => imageInput.click());
+        
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('drag-over');
+        });
+        
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('drag-over');
+        });
+        
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('drag-over');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                imageInput.files = files;
+                analyzeUploadedImage();
+            }
+        });
+        
+        imageInput.addEventListener('change', analyzeUploadedImage);
+        
+        async function analyzeUploadedImage() {
+            const file = imageInput.files[0];
+            if (!file) return;
+            
+            showLoading();
+            hideError();
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const response = await fetch(`${API_URL}/analyze`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    showError(error.detail || 'Failed to analyze image');
+                    return;
+                }
+                
+                const result = await response.json();
+                displayResults(result);
+            } catch (error) {
+                showError(`Error: ${error.message}`);
+            }
+        }
+        
+        // Link paste handling
+        document.getElementById('pasteButton').addEventListener('click', async () => {
+            const content = document.getElementById('linkInput').value.trim();
+            
+            if (!content) {
+                showError('Please paste a URL or UPI link');
+                return;
+            }
+            
+            showLoading();
+            hideError();
+            
+            try {
+                const response = await fetch(`${API_URL}/analyze-text`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ content })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    showError(error.detail || 'Failed to analyze link');
+                    return;
+                }
+                
+                const result = await response.json();
+                displayResults(result);
+            } catch (error) {
+                showError(`Error: ${error.message}`);
+            }
+        });
+        
+        function displayResults(data) {
+            hideLoading();
+            
+            const verdict = data.verdict;
+            const riskClass = verdict.risk_level.toLowerCase();
+            
+            let html = `
+                <div class="verdict-card ${riskClass}">
+                    <div class="risk-badge ${riskClass}">${verdict.risk_level}</div>
+                    <div class="verdict-title">${verdict.scam_type.replace(/_/g, ' ').toUpperCase()}</div>
+                    <div class="verdict-explanation">${verdict.explanation}</div>
+                    <div class="recommendation">📌 ${verdict.recommendation}</div>
+            `;
+            
+            if (verdict.red_flags && verdict.red_flags.length > 0) {
+                html += '<div class="red-flags"><h4>⚠️ Red Flags:</h4>';
+                verdict.red_flags.forEach(flag => {
+                    html += `<div class="flag-item">${escapeHtml(flag)}</div>`;
+                });
+                html += '</div>';
+            }
+            
+            html += `
+                    <div class="decoded-content">
+                        <div class="decoded-label">🔍 Decoded Content (${data.content_type}):</div>
+                        ${escapeHtml(data.decoded_content)}
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('verdictContainer').innerHTML = html;
+            document.getElementById('results').classList.add('show');
+        }
+        
+        document.getElementById('resetButton').addEventListener('click', () => {
+            document.getElementById('results').classList.remove('show');
+            document.getElementById('verdictContainer').innerHTML = '';
+            imageInput.value = '';
+            document.getElementById('linkInput').value = '';
+            hideError();
+        });
+        
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').classList.remove('show');
+        }
+        
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            hideLoading();
+        }
+        
+        function hideError() {
+            document.getElementById('errorMessage').style.display = 'none';
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
