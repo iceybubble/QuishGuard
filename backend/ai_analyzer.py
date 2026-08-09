@@ -90,7 +90,6 @@ Analyze and respond with valid JSON only."""
     def _validate_verdict(self, verdict: Dict[str, Any]) -> Dict[str, Any]:
         """Validate verdict has required fields with valid values"""
         required_fields = ['scam_type', 'risk_level', 'explanation', 'red_flags', 'recommendation']
-        Gemini
         # Ensure all fields exist
         for field in required_fields:
             if field not in verdict:
