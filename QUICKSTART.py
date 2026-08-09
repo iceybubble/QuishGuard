@@ -28,7 +28,7 @@ def print_setup_instructions():
         ("3. Start Application", [
             "Windows: Run start.bat",
             "Mac/Linux: bash start.sh",
-            "Or manually: docker-compose up",
+            "Or manually: docker-compose up --build",
             "Wait for both services to start (~30 seconds)",
         ]),
         ("4. Open Browser", [
@@ -71,16 +71,18 @@ def print_file_structure():
     │   ├── main.py              ← FastAPI server
     │   ├── qr_decoder.py        ← OpenCV QR decode
     │   ├── heuristics.py        ← Fraud signal detection
-    │   ├── ai_analyzer.py       ← Claude integration
+    │   ├── ai_analyzer.py       ← Gemini integration
     │   ├── requirements.txt
     │   ├── Dockerfile
     │   └── __init__.py
     ├── frontend/
     │   ├── index.html           ← Single-page app
+    │   ├── nginx.conf           ← Web server config
     │   └── Dockerfile
     ├── tests/
+    │   ├── generate_test_qr.py  ← Generate test QR images
     │   ├── manual_test.py       ← Local pipeline test
-    │   └── test_demo.py         ← Demo checklist
+    │   └── test_demo.py         ← Demo checklist + tests
     ├── docker-compose.yml       ← Orchestration
     ├── .env.example             ← Config template
     ├── start.sh / start.bat     ← Quick start scripts
@@ -114,7 +116,7 @@ def print_troubleshooting():
     issues = [
         ("Docker not installed", "Download from docker.com"),
         ("Port 3000/8000 in use", "Change ports in docker-compose.yml"),
-        ("ANTHROPIC_API_KEY error", "Check .env file exists and has valid key"),
+        ("GOOGLE_API_KEY error", "Check .env file exists and has valid Gemini key"),
         ("QR not detected", "Image must be clear, 50x50px minimum - use paste tab"),
         ("Containers won't start", "Run: docker-compose down && docker-compose up --build"),
     ]

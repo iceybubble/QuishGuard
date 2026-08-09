@@ -14,12 +14,14 @@ class HeuristicAnalyzer:
         'upi': ['upi://'],
         'gpay': ['tez://'],
         'paytm': ['paytmqr://'],
+        'phonepe': ['phonepe://'],
     }
     
     # Suspicious TLDs
     SUSPICIOUS_TLDS = {
         '.xyz', '.top', '.tk', '.ml', '.ga', '.cf',
         '.loan', '.date', '.racing', '.work', '.download',
+        '.buzz', '.click', '.link', '.info', '.win',
     }
     
     # Known legitimate payment domains
@@ -27,6 +29,25 @@ class HeuristicAnalyzer:
         'paytm.com', 'paypal.com', 'razorpay.com',
         'google.com', 'gpay.com', 'phone.google',
         'upi.npci.co.in', 'upi.google.com',
+        'phonepe.com', 'bhimupi.org.in',
+    }
+
+    # Known legitimate UPI bank handles
+    KNOWN_BANK_HANDLES = {
+        'okhdfcbank', 'okaxis', 'okicici', 'oksbi', 'ybl',
+        'paytm', 'apl', 'freecharge', 'upi', 'ibl',
+        'axl', 'sbi', 'icici', 'hdfcbank', 'axisbank',
+        'kotak', 'indus', 'boi', 'pnb', 'unionbank',
+        'cbin', 'cnrb', 'idbi', 'rbl', 'federal',
+        'kvb', 'dlb', 'kbl', 'mahb', 'aubank',
+        'jupiteraxis', 'slice', 'fam',
+    }
+
+    # URL shorteners (including Indian-popular ones)
+    URL_SHORTENERS = {
+        'bit.ly', 'tinyurl.com', 'ow.ly', 'goo.gl', 'short.link',
+        't.co', 'cutt.ly', 'is.gd', 'rb.gy', 'shorturl.at',
+        'tiny.cc', 'surl.li', 'clck.ru',
     }
     
     def analyze(self, decoded_content: str) -> Dict[str, Any]:
@@ -52,6 +73,11 @@ class HeuristicAnalyzer:
         elif result['type'] == 'url':
             result['structured_data'] = self._analyze_url(decoded_content)
             result['extracted_signals'] = self._check_url_signals(result['structured_data'])
+        elif result['type'] == 'payment_app':
+            result['extracted_signals'] = [
+                f"Payment app deep link detected: {decoded_content[:40]}...",
+                "Verify the app name matches what you expect before proceeding",
+            ]
         else:
             result['extracted_signals'] = [
                 "Unknown content type - cannot automatically classify"
@@ -60,10 +86,13 @@ class HeuristicAnalyzer:
         return result
     
     def _detect_type(self, content: str) -> str:
-        """Detect if content is UPI link, URL, or other"""
-        if content.startswith('upi://'):
+        """Detect if content is UPI link, URL, payment app link, or other"""
+        lower = content.lower()
+        if lower.startswith('upi://'):
             return 'upi'
-        elif content.startswith('http://') or content.startswith('https://'):
+        elif lower.startswith('tez://') or lower.startswith('phonepe://') or lower.startswith('paytmqr://'):
+            return 'payment_app'
+        elif lower.startswith('http://') or lower.startswith('https://'):
             return 'url'
         else:
             return 'unknown'
@@ -114,21 +143,31 @@ class HeuristicAnalyzer:
             signals.append("Could not parse UPI link")
             return signals
         
-        vpa = upi_data.get('vpa', '')
-        payee_name = upi_data.get('payee_name', '')
+        vpa = upi_data.get('vpa', '') or ''
+        payee_name = upi_data.get('payee_name', '') or ''
+        amount = upi_data.get('amount', '') or ''
         
         # Check for generic/suspicious payee names
-        generic_names = ['merchant', 'business', 'service', 'admin', 'support', 'verify']
+        generic_names = ['merchant', 'business', 'service', 'admin', 'support', 'verify', 'refund', 'cashback']
         if payee_name and any(generic in payee_name.lower() for generic in generic_names):
             signals.append(f"Generic payee name: '{payee_name}'")
         
         # Check for suspiciously formatted VPA (random looking)
-        if vpa and self._looks_random(vpa):
+        if vpa and self._looks_random(vpa.split('@')[0] if '@' in vpa else vpa):
             signals.append(f"VPA looks randomized: '{vpa}'")
         
-        # Check for known suspicious VPA patterns
-        if vpa and not any(vpa.endswith(f'@{bank}') for bank in ['okhdfcbank', 'okaxis', 'okicici', 'oksbi', 'ybl']):
-            signals.append(f"VPA uses non-standard bank handle: '{vpa}'")
+        # Check VPA handle against known banks
+        if vpa and '@' in vpa:
+            handle = vpa.split('@')[1]
+            if handle not in self.KNOWN_BANK_HANDLES:
+                signals.append(f"VPA uses non-standard bank handle: '@{handle}'")
+        
+        # Check for unusually high amounts
+        try:
+            if amount and float(amount) > 5000:
+                signals.append(f"High payment amount: ₹{amount}")
+        except ValueError:
+            pass
         
         if not signals:
             signals.append("UPI link structure appears standard")
@@ -144,6 +183,10 @@ class HeuristicAnalyzer:
             return signals
         
         domain = url_data.get('domain', '')
+        
+        # Check for HTTP (not HTTPS)
+        if url_data.get('scheme') == 'http':
+            signals.append("Insecure HTTP connection (no encryption)")
         
         # Check for IP address as domain
         if url_data.get('is_ip_domain'):
@@ -167,6 +210,11 @@ class HeuristicAnalyzer:
         if base_domain not in self.LEGITIMATE_PAYMENT_DOMAINS and 'payment' in domain.lower():
             signals.append(f"Payment-related domain not in trusted list: '{domain}'")
         
+        # Check for excessive subdomains (e.g. secure.login.paytm.fake.xyz)
+        subdomain_count = len(domain.split('.')) - 2
+        if subdomain_count >= 3:
+            signals.append(f"Excessive subdomains ({subdomain_count}) — may be masking real domain")
+        
         if not signals:
             signals.append("URL structure appears normal")
         
@@ -186,27 +234,35 @@ class HeuristicAnalyzer:
     
     def _is_url_shortener(self, domain: str) -> bool:
         """Check if domain is a known URL shortener"""
-        shorteners = {'bit.ly', 'tinyurl.com', 'ow.ly', 'goo.gl', 'short.link'}
-        return domain in shorteners or any(domain.startswith(s.split('.')[0]) for s in shorteners)
+        return domain in self.URL_SHORTENERS
     
     def _looks_random(self, text: str) -> bool:
         """Heuristic: does text look randomly generated (high entropy)"""
-        # Very simple: mostly numbers/consonants without pattern
+        if not text or len(text) < 4:
+            return False
+        
         letter_count = sum(1 for c in text if c.isalpha())
         digit_count = sum(1 for c in text if c.isdigit())
+        total = letter_count + digit_count
         
-        # Random-looking if mostly digits or weird character mix
-        return digit_count > letter_count * 0.5
+        if total == 0:
+            return False
+        
+        # Random-looking if digits dominate (>60% of alphanumeric chars)
+        # and the string is reasonably long
+        return digit_count > total * 0.6 and total >= 6
     
     def _looks_like_lookalike(self, domain: str) -> bool:
         """Heuristic: domain might be a lookalike of legitimate service"""
         suspicious_patterns = [
             r'paytm.*verify',
             r'paytm.*pay',
-            r'.*paypal.*',
-            r'.*bank.*',
-            r'.*verify.*',
-            r'.*secure.*',
+            r'paytm-',
+            r'phonepe-',
+            r'gpay-',
+            r'.*-secure\.',
+            r'.*-verify\.',
+            r'.*-login\.',
         ]
         
         for pattern in suspicious_patterns:

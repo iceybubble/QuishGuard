@@ -3,573 +3,1106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QuishGuard - QR Code Security Scanner</title>
+    <title>QuishGuard — QR Code Security Scanner</title>
+    <meta name="description" content="Scan the QR before you tap it. QuishGuard decodes QR codes, analyzes where they lead, and gives a plain-language risk verdict before you visit or pay.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
+        /* ============================================
+           DESIGN SYSTEM
+           ============================================ */
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-card: rgba(255, 255, 255, 0.04);
+            --bg-card-hover: rgba(255, 255, 255, 0.07);
+            --bg-glass: rgba(255, 255, 255, 0.06);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --border-focus: rgba(139, 92, 246, 0.5);
+
+            --text-primary: #f0f0f5;
+            --text-secondary: #8b8b9e;
+            --text-muted: #5a5a6e;
+
+            --accent-violet: #8b5cf6;
+            --accent-violet-dim: rgba(139, 92, 246, 0.15);
+            --accent-blue: #3b82f6;
+            --accent-cyan: #06b6d4;
+
+            --risk-low: #10b981;
+            --risk-low-bg: rgba(16, 185, 129, 0.08);
+            --risk-low-border: rgba(16, 185, 129, 0.25);
+            --risk-medium: #f59e0b;
+            --risk-medium-bg: rgba(245, 158, 11, 0.08);
+            --risk-medium-border: rgba(245, 158, 11, 0.25);
+            --risk-high: #ef4444;
+            --risk-high-bg: rgba(239, 68, 68, 0.08);
+            --risk-high-border: rgba(239, 68, 68, 0.25);
+            --risk-critical: #dc2626;
+            --risk-critical-bg: rgba(220, 38, 38, 0.10);
+            --risk-critical-border: rgba(220, 38, 38, 0.30);
+
+            --radius-sm: 8px;
+            --radius-md: 14px;
+            --radius-lg: 20px;
+            --radius-xl: 28px;
+
+            --shadow-card: 0 4px 30px rgba(0, 0, 0, 0.4);
+            --shadow-glow: 0 0 60px rgba(139, 92, 246, 0.08);
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
             min-height: 100vh;
-            padding: 20px;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
         }
-        
+
+        /* ============================================
+           ANIMATED BACKGROUND
+           ============================================ */
+        .bg-mesh {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .bg-mesh::before,
+        .bg-mesh::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: 0.35;
+            animation: meshFloat 20s ease-in-out infinite alternate;
+        }
+
+        .bg-mesh::before {
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--accent-violet) 0%, transparent 70%);
+            top: -200px;
+            right: -100px;
+        }
+
+        .bg-mesh::after {
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, var(--accent-cyan) 0%, transparent 70%);
+            bottom: -150px;
+            left: -100px;
+            animation-delay: -10s;
+        }
+
+        @keyframes meshFloat {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(40px, -30px) scale(1.15); }
+        }
+
+        /* Subtle grid overlay */
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+
+        /* ============================================
+           LAYOUT
+           ============================================ */
+        .app {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 24px 20px 60px;
+        }
+
         .container {
-            max-width: 600px;
-            margin: 0 auto;
+            width: 100%;
+            max-width: 520px;
         }
-        
+
+        /* ============================================
+           HEADER
+           ============================================ */
         header {
             text-align: center;
-            color: white;
-            margin-bottom: 40px;
-            padding-top: 20px;
+            margin-bottom: 36px;
+            padding-top: 32px;
+            animation: fadeInDown 0.7s ease-out;
         }
-        
-        header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-        
-        header p {
-            font-size: 1.1em;
-            opacity: 0.9;
+
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
         }
-        
-        .card {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            padding: 40px;
-            margin-bottom: 20px;
-        }
-        
-        .tab-buttons {
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent-violet), var(--accent-cyan));
+            border-radius: var(--radius-md);
             display: flex;
-            gap: 10px;
-            margin-bottom: 30px;
-            border-bottom: 2px solid #f0f0f0;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 0 30px rgba(139, 92, 246, 0.3);
         }
-        
-        .tab-button {
-            padding: 12px 20px;
+
+        .logo-text {
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            background: linear-gradient(135deg, #fff 0%, #c4b5fd 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .tagline {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            font-weight: 400;
+            letter-spacing: 0.01em;
+        }
+
+        .scan-count {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 14px;
+            padding: 6px 14px;
+            background: var(--accent-violet-dim);
+            border: 1px solid rgba(139, 92, 246, 0.15);
+            border-radius: 100px;
+            font-size: 0.75rem;
+            color: var(--accent-violet);
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+
+        .scan-count-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--accent-violet);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* ============================================
+           GLASS CARD
+           ============================================ */
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-xl);
+            padding: 32px;
+            box-shadow: var(--shadow-card);
+            animation: fadeInUp 0.6s ease-out 0.15s both;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ============================================
+           TABS
+           ============================================ */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 28px;
+            background: rgba(255,255,255,0.03);
+            border-radius: var(--radius-md);
+            padding: 4px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px 16px;
             border: none;
-            background: none;
+            background: transparent;
             cursor: pointer;
-            font-size: 1em;
-            color: #999;
-            border-bottom: 3px solid transparent;
-            transition: all 0.3s ease;
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            border-radius: calc(var(--radius-md) - 2px);
+            transition: all 0.25s ease;
         }
-        
-        .tab-button.active {
-            color: #667eea;
-            border-bottom-color: #667eea;
+
+        .tab-btn:hover {
+            color: var(--text-secondary);
         }
-        
-        .tab-content {
+
+        .tab-btn.active {
+            background: var(--accent-violet-dim);
+            color: var(--accent-violet);
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.06);
+        }
+
+        .tab-panel {
             display: none;
         }
-        
-        .tab-content.active {
+
+        .tab-panel.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* ============================================
+           UPLOAD ZONE
+           ============================================ */
+        .upload-zone {
+            border: 2px dashed rgba(139, 92, 246, 0.25);
+            border-radius: var(--radius-lg);
+            padding: 44px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(139, 92, 246, 0.03);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-zone::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, rgba(139, 92, 246, 0.06) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .upload-zone:hover,
+        .upload-zone.drag-over {
+            border-color: var(--accent-violet);
+            background: rgba(139, 92, 246, 0.06);
+        }
+
+        .upload-zone:hover::before,
+        .upload-zone.drag-over::before {
+            opacity: 1;
+        }
+
+        .upload-icon {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
             display: block;
         }
-        
-        .upload-zone {
-            border: 2px dashed #667eea;
-            border-radius: 8px;
-            padding: 40px;
-            text-align: center;
-            transition: all 0.3s ease;
-            cursor: pointer;
-            background: #f9f9ff;
+
+        .upload-zone h3 {
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 6px;
         }
-        
-        .upload-zone:hover {
-            border-color: #764ba2;
-            background: #f3f0ff;
-        }
-        
-        .upload-zone.drag-over {
-            border-color: #764ba2;
-            background: #f3f0ff;
-        }
-        
+
         .upload-zone p {
-            color: #667eea;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        .upload-zone.has-file {
+            border-color: var(--risk-low);
+            background: var(--risk-low-bg);
+        }
+
+        .upload-zone.has-file .upload-icon { display: none; }
+
+        /* Image preview inside upload zone */
+        .preview-wrap {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .upload-zone.has-file .preview-wrap { display: flex; }
+        .upload-zone.has-file h3,
+        .upload-zone.has-file p { display: none; }
+
+        .preview-img {
+            max-width: 160px;
+            max-height: 160px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-glass);
+            object-fit: contain;
+        }
+
+        .preview-name {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
             font-weight: 500;
-            margin-bottom: 10px;
         }
-        
-        .upload-zone small {
-            color: #999;
-        }
-        
+
         #imageInput {
             display: none;
         }
-        
+
+        /* ============================================
+           TEXT INPUT
+           ============================================ */
         .text-input {
             width: 100%;
-            padding: 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-family: monospace;
-            font-size: 0.9em;
+            padding: 16px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-md);
+            font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 0.85rem;
+            color: var(--text-primary);
             resize: vertical;
             min-height: 100px;
             margin-bottom: 20px;
-            transition: border 0.3s ease;
+            transition: border-color 0.25s ease, box-shadow 0.25s ease;
         }
-        
+
+        .text-input::placeholder {
+            color: var(--text-muted);
+        }
+
         .text-input:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
         }
-        
-        .analyze-button {
+
+        /* ============================================
+           BUTTONS
+           ============================================ */
+        .btn-primary {
             width: 100%;
-            padding: 15px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--accent-violet), var(--accent-blue));
+            color: #fff;
             border: none;
-            border-radius: 8px;
-            font-size: 1.1em;
+            border-radius: var(--radius-md);
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+            margin-top: 20px;
+            letter-spacing: 0.01em;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(139, 92, 246, 0.3);
+        }
+
+        .btn-primary:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .btn-reset {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255,255,255,0.04);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-md);
+            font-family: inherit;
+            font-size: 0.85rem;
             font-weight: 600;
             cursor: pointer;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            transition: all 0.2s ease;
+            margin-top: 16px;
         }
-        
-        .analyze-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+
+        .btn-reset:hover {
+            background: rgba(255,255,255,0.07);
+            color: var(--text-primary);
         }
-        
-        .analyze-button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
+
+        /* ============================================
+           LOADING STATE
+           ============================================ */
         .loading {
+            display: none;
             text-align: center;
-            padding: 30px;
-            color: #667eea;
+            padding: 40px 20px;
         }
-        
-        .spinner {
-            border: 4px solid #f0f0f0;
-            border-top: 4px solid #667eea;
+
+        .loading.show { display: block; }
+
+        .loading-ring {
+            width: 48px;
+            height: 48px;
+            border: 3px solid rgba(139, 92, 246, 0.15);
+            border-top-color: var(--accent-violet);
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
+            animation: spin 0.9s linear infinite;
+            margin: 0 auto 16px;
         }
-        
+
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            to { transform: rotate(360deg); }
         }
-        
+
+        .loading p {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .loading small {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+        }
+
+        /* ============================================
+           ERROR STATE
+           ============================================ */
+        .error-msg {
+            display: none;
+            background: var(--risk-high-bg);
+            border: 1px solid var(--risk-high-border);
+            color: var(--risk-high);
+            padding: 14px 18px;
+            border-radius: var(--radius-md);
+            margin-bottom: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .error-msg.show { display: block; }
+
+        /* ============================================
+           RESULT SECTION
+           ============================================ */
         .result {
             display: none;
+            animation: resultReveal 0.5s ease-out;
         }
-        
-        .result.show {
-            display: block;
+
+        .result.show { display: block; }
+
+        @keyframes resultReveal {
+            from {
+                opacity: 0;
+                transform: translateY(20px) scale(0.97);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
-        
+
+        /* Risk verdict card */
         .verdict-card {
-            border-left: 5px solid;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+            border-radius: var(--radius-lg);
+            padding: 28px;
+            margin-bottom: 16px;
+            position: relative;
+            overflow: hidden;
         }
-        
+
+        .verdict-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            border-radius: 4px 0 0 4px;
+        }
+
         .verdict-card.low {
-            border-left-color: #4caf50;
-            background: #f1f8f6;
+            background: var(--risk-low-bg);
+            border: 1px solid var(--risk-low-border);
         }
-        
+        .verdict-card.low::before { background: var(--risk-low); }
+
         .verdict-card.medium {
-            border-left-color: #ff9800;
-            background: #fef7f1;
+            background: var(--risk-medium-bg);
+            border: 1px solid var(--risk-medium-border);
         }
-        
+        .verdict-card.medium::before { background: var(--risk-medium); }
+
         .verdict-card.high {
-            border-left-color: #f44336;
-            background: #fef1f0;
+            background: var(--risk-high-bg);
+            border: 1px solid var(--risk-high-border);
         }
-        
+        .verdict-card.high::before { background: var(--risk-high); }
+
         .verdict-card.critical {
-            border-left-color: #8b0000;
-            background: #fef0f0;
+            background: var(--risk-critical-bg);
+            border: 1px solid var(--risk-critical-border);
         }
-        
-        .risk-badge {
-            display: inline-block;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 0.9em;
-            margin-bottom: 15px;
-        }
-        
-        .risk-badge.low {
-            background: #4caf50;
-            color: white;
-        }
-        
-        .risk-badge.medium {
-            background: #ff9800;
-            color: white;
-        }
-        
-        .risk-badge.high {
-            background: #f44336;
-            color: white;
-        }
-        
-        .risk-badge.critical {
-            background: #8b0000;
-            color: white;
-        }
-        
-        .verdict-title {
-            font-weight: 600;
-            font-size: 1.1em;
-            margin-bottom: 10px;
-            color: #333;
-        }
-        
-        .verdict-explanation {
-            color: #555;
-            margin-bottom: 15px;
-            line-height: 1.6;
-        }
-        
-        .recommendation {
-            background: white;
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 15px;
-            font-style: italic;
-            color: #667eea;
-        }
-        
-        .red-flags {
-            margin-top: 15px;
-        }
-        
-        .red-flags h4 {
-            color: #333;
-            margin-bottom: 10px;
-            font-size: 0.95em;
-        }
-        
-        .flag-item {
-            background: white;
-            padding: 8px 12px;
-            border-radius: 6px;
-            margin-bottom: 8px;
-            font-size: 0.9em;
-            color: #666;
+        .verdict-card.critical::before { background: var(--risk-critical); }
+
+        /* Header row: badge + type */
+        .verdict-header {
             display: flex;
             align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
         }
-        
-        .flag-item:before {
-            content: "⚠";
-            margin-right: 10px;
-            font-weight: bold;
+
+        .risk-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 14px;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            animation: badgePop 0.4s ease-out 0.2s both;
         }
-        
-        .decoded-content {
-            background: #f9f9f9;
-            padding: 12px;
-            border-radius: 6px;
-            margin-top: 15px;
-            word-break: break-all;
-            font-family: monospace;
-            font-size: 0.85em;
-            color: #666;
+
+        @keyframes badgePop {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
         }
-        
+
+        .risk-badge.low { background: var(--risk-low); color: #fff; }
+        .risk-badge.medium { background: var(--risk-medium); color: #1a1a1a; }
+        .risk-badge.high { background: var(--risk-high); color: #fff; }
+        .risk-badge.critical { background: var(--risk-critical); color: #fff; }
+
+        .risk-badge-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: currentColor;
+            opacity: 0.6;
+        }
+
+        .verdict-type {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: capitalize;
+        }
+
+        /* Explanation */
+        .verdict-explain {
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            line-height: 1.65;
+            margin-bottom: 16px;
+        }
+
+        /* Recommendation */
+        .verdict-rec {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            background: rgba(255,255,255,0.04);
+            border-radius: var(--radius-sm);
+            padding: 12px 16px;
+            margin-bottom: 18px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.55;
+        }
+
+        .verdict-rec-icon {
+            font-size: 1rem;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        /* Red flags */
+        .red-flags-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 10px;
+        }
+
+        .flag-chip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: var(--radius-sm);
+            margin-bottom: 6px;
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+        }
+
+        .flag-chip-icon {
+            color: var(--risk-medium);
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+
+        /* Decoded content (transparency section) */
+        .decoded-section {
+            margin-top: 18px;
+            padding-top: 18px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+
         .decoded-label {
-            font-size: 0.85em;
-            color: #999;
-            margin-bottom: 5px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 8px;
         }
-        
-        .reset-button {
-            width: 100%;
-            padding: 12px;
-            background: #f0f0f0;
-            color: #333;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1em;
-            transition: background 0.3s ease;
-            margin-top: 15px;
+
+        .decoded-content {
+            padding: 12px 16px;
+            background: rgba(0,0,0,0.25);
+            border-radius: var(--radius-sm);
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            word-break: break-all;
+            line-height: 1.5;
+            border: 1px solid rgba(255,255,255,0.04);
         }
-        
-        .reset-button:hover {
-            background: #e0e0e0;
+
+        .heuristic-signals {
+            margin-top: 12px;
         }
-        
-        .error-message {
-            background: #ffebee;
-            border: 1px solid #ef5350;
-            color: #c62828;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+
+        .signal-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            padding: 4px 0;
+        }
+
+        .signal-icon {
+            font-size: 0.7rem;
+            color: var(--accent-violet);
+        }
+
+        /* ============================================
+           FOOTER
+           ============================================ */
+        .footer {
+            text-align: center;
+            margin-top: 32px;
+            padding: 16px;
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            letter-spacing: 0.02em;
+            animation: fadeInUp 0.6s ease-out 0.4s both;
+        }
+
+        .footer a {
+            color: var(--accent-violet);
+            text-decoration: none;
+        }
+
+        /* ============================================
+           RESPONSIVE
+           ============================================ */
+        @media (max-width: 540px) {
+            .card { padding: 24px 20px; }
+            .logo-text { font-size: 1.6rem; }
+            .upload-zone { padding: 32px 16px; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🛡️ QuishGuard</h1>
-            <p>Scan before you tap. Decode. Analyze. Stay safe.</p>
-        </header>
-        
-        <div class="card">
-            <div class="tab-buttons">
-                <button class="tab-button active" data-tab="upload">Upload QR Image</button>
-                <button class="tab-button" data-tab="paste">Paste Link</button>
-            </div>
-            
-            <!-- Upload Tab -->
-            <div id="upload" class="tab-content active">
-                <div class="upload-zone" id="uploadZone">
-                    <p>📱 Drop your QR code image here</p>
-                    <small>or click to browse (PNG, JPG, GIF)</small>
+    <div class="bg-mesh"></div>
+    <div class="bg-grid"></div>
+
+    <div class="app">
+        <div class="container">
+            <header>
+                <div class="logo">
+                    <div class="logo-icon">🛡️</div>
+                    <span class="logo-text">QuishGuard</span>
                 </div>
-                <input type="file" id="imageInput" accept="image/*">
-                <button class="analyze-button" id="uploadButton" style="margin-top: 20px;">Analyze QR Code</button>
+                <p class="tagline">Scan before you tap. Decode. Analyze. Stay safe.</p>
+                <div class="scan-count" id="scanCount">
+                    <span class="scan-count-dot"></span>
+                    <span id="scanCountText">0 scans completed</span>
+                </div>
+            </header>
+
+            <div class="card">
+                <!-- Tabs -->
+                <div class="tabs" role="tablist">
+                    <button class="tab-btn active" role="tab" data-tab="upload" aria-selected="true" id="tab-upload">Upload QR</button>
+                    <button class="tab-btn" role="tab" data-tab="paste" aria-selected="false" id="tab-paste">Paste Link</button>
+                </div>
+
+                <!-- Upload Tab -->
+                <div id="panel-upload" class="tab-panel active" role="tabpanel">
+                    <div class="upload-zone" id="uploadZone">
+                        <span class="upload-icon">📱</span>
+                        <h3>Drop your QR code image here</h3>
+                        <p>PNG, JPG, or GIF — from a phone photo or screenshot</p>
+                        <div class="preview-wrap">
+                            <img class="preview-img" id="previewImg" alt="QR preview">
+                            <span class="preview-name" id="previewName"></span>
+                        </div>
+                    </div>
+                    <input type="file" id="imageInput" accept="image/*">
+                    <button class="btn-primary" id="uploadBtn">Analyze QR Code</button>
+                </div>
+
+                <!-- Paste Tab -->
+                <div id="panel-paste" class="tab-panel" role="tabpanel">
+                    <textarea class="text-input" id="linkInput"
+                        placeholder="Paste a UPI link (upi://pay?...) or URL (https://...)"
+                        spellcheck="false"></textarea>
+                    <button class="btn-primary" id="pasteBtn" style="margin-top:0">Analyze Link</button>
+                </div>
+
+                <!-- Loading -->
+                <div class="loading" id="loading">
+                    <div class="loading-ring"></div>
+                    <p>Analyzing for threats…</p>
+                    <small>Decoding → Heuristics → AI Reasoning</small>
+                </div>
+
+                <!-- Error -->
+                <div class="error-msg" id="errorMsg"></div>
+
+                <!-- Results -->
+                <div class="result" id="results">
+                    <div id="verdictContainer"></div>
+                    <button class="btn-reset" id="resetBtn">← Analyze Another</button>
+                </div>
             </div>
-            
-            <!-- Paste Link Tab -->
-            <div id="paste" class="tab-content">
-                <textarea class="text-input" id="linkInput" placeholder="Paste a UPI link (upi://pay?...) or URL (https://...)"></textarea>
-                <button class="analyze-button" id="pasteButton">Analyze Link</button>
-            </div>
-            
-            <!-- Loading State -->
-            <div class="loading" id="loading" style="display: none;">
-                <div class="spinner"></div>
-                <p>Analyzing...</p>
-            </div>
-            
-            <!-- Error State -->
-            <div id="errorMessage" class="error-message" style="display: none;"></div>
-            
-            <!-- Results -->
-            <div class="result" id="results">
-                <div id="verdictContainer"></div>
-                <button class="reset-button" id="resetButton">← Analyze Another QR</button>
-            </div>
+
+            <footer class="footer">
+                QuishGuard — Built to fight India's QR fraud epidemic<br>
+                Powered by local heuristics + Gemini AI reasoning
+            </footer>
         </div>
     </div>
-    
+
     <script>
-        // Set API URL - try environment first, fallback to localhost for local dev
-        let API_URL = 'http://localhost:8000';
-        try {
-            if (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL) {
-                API_URL = process.env.REACT_APP_API_URL;
-            }
-        } catch (e) {
-            // Environment not available, use default
+        /* ===========================================
+           CONFIGURATION
+           =========================================== */
+        const API_URL = 'http://localhost:8000';
+
+        /* ===========================================
+           SCAN COUNTER (localStorage)
+           =========================================== */
+        let scanTotal = parseInt(localStorage.getItem('quishguard_scans') || '0', 10);
+        updateScanCount();
+
+        function incrementScan() {
+            scanTotal++;
+            localStorage.setItem('quishguard_scans', scanTotal);
+            updateScanCount();
         }
-        // Helpful debug: show resolved API_URL in console
-        console.log('QuishGuard: resolved API_URL =', API_URL);
-        
-        // Tab switching
-        document.querySelectorAll('.tab-button').forEach(button => {
-            button.addEventListener('click', () => {
-                document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-                
-                button.classList.add('active');
-                document.getElementById(button.dataset.tab).classList.add('active');
-                
+
+        function updateScanCount() {
+            const el = document.getElementById('scanCountText');
+            el.textContent = `${scanTotal} scan${scanTotal !== 1 ? 's' : ''} completed`;
+        }
+
+        /* ===========================================
+           TAB SWITCHING
+           =========================================== */
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => {
+                    b.classList.remove('active');
+                    b.setAttribute('aria-selected', 'false');
+                });
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+
+                btn.classList.add('active');
+                btn.setAttribute('aria-selected', 'true');
+                document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+
                 hideError();
             });
         });
-        
-        // File upload handling
+
+        /* ===========================================
+           FILE UPLOAD + PREVIEW
+           =========================================== */
         const uploadZone = document.getElementById('uploadZone');
         const imageInput = document.getElementById('imageInput');
-        
+        let selectedFile = null;
+
         uploadZone.addEventListener('click', () => imageInput.click());
-        
-        uploadZone.addEventListener('dragover', (e) => {
+
+        uploadZone.addEventListener('dragover', e => {
             e.preventDefault();
             uploadZone.classList.add('drag-over');
         });
-        
+
         uploadZone.addEventListener('dragleave', () => {
             uploadZone.classList.remove('drag-over');
         });
-        
-        uploadZone.addEventListener('drop', (e) => {
+
+        uploadZone.addEventListener('drop', e => {
             e.preventDefault();
             uploadZone.classList.remove('drag-over');
-            
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                imageInput.files = files;
-                analyzeUploadedImage();
+            if (e.dataTransfer.files.length > 0) {
+                setFile(e.dataTransfer.files[0]);
             }
         });
-        
-        imageInput.addEventListener('change', analyzeUploadedImage);
-        
-        async function analyzeUploadedImage() {
-            const file = imageInput.files[0];
-            if (!file) return;
-            
+
+        imageInput.addEventListener('change', () => {
+            if (imageInput.files[0]) setFile(imageInput.files[0]);
+        });
+
+        function setFile(file) {
+            selectedFile = file;
+            uploadZone.classList.add('has-file');
+            document.getElementById('previewName').textContent = file.name;
+
+            const reader = new FileReader();
+            reader.onload = e => {
+                document.getElementById('previewImg').src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearFile() {
+            selectedFile = null;
+            uploadZone.classList.remove('has-file');
+            imageInput.value = '';
+            document.getElementById('previewImg').src = '';
+            document.getElementById('previewName').textContent = '';
+        }
+
+        /* ===========================================
+           UPLOAD ANALYSIS
+           =========================================== */
+        document.getElementById('uploadBtn').addEventListener('click', () => {
+            if (!selectedFile) {
+                showError('Please select or drop a QR code image first.');
+                return;
+            }
+            analyzeImage(selectedFile);
+        });
+
+        async function analyzeImage(file) {
             showLoading();
             hideError();
-            
+
             try {
                 const formData = new FormData();
                 formData.append('file', file);
 
-                const requestUrl = `${API_URL}/analyze`;
-                console.log('QuishGuard: POST', requestUrl);
-
-                const response = await fetch(requestUrl, {
+                const res = await fetch(`${API_URL}/analyze`, {
                     method: 'POST',
-                    body: formData
+                    body: formData,
                 });
-                
-                if (!response.ok) {
-                    const error = await response.json();
-                    showError(error.detail || 'Failed to analyze image');
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    showError(err.detail || `Server error (${res.status})`);
                     return;
                 }
-                
-                const result = await response.json();
-                displayResults(result);
-            } catch (error) {
-                console.error('QuishGuard: fetch error', error);
-                showError(`Error: ${error.message}`);
+
+                const data = await res.json();
+                incrementScan();
+                displayResults(data);
+            } catch (err) {
+                showError(`Connection failed: ${err.message}. Is the backend running on ${API_URL}?`);
             }
         }
-        
-        // Link paste handling
-        document.getElementById('pasteButton').addEventListener('click', async () => {
+
+        /* ===========================================
+           TEXT / LINK ANALYSIS
+           =========================================== */
+        document.getElementById('pasteBtn').addEventListener('click', async () => {
             const content = document.getElementById('linkInput').value.trim();
-            
             if (!content) {
-                showError('Please paste a URL or UPI link');
+                showError('Please paste a URL or UPI link to analyze.');
                 return;
             }
-            
+
             showLoading();
             hideError();
-            
-            try {
-                const requestUrl = `${API_URL}/analyze-text`;
-                console.log('QuishGuard: POST', requestUrl);
 
-                const response = await fetch(requestUrl, {
+            try {
+                const res = await fetch(`${API_URL}/analyze-text`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ content })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content }),
                 });
-                
-                if (!response.ok) {
-                    const error = await response.json();
-                    showError(error.detail || 'Failed to analyze link');
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    showError(err.detail || `Server error (${res.status})`);
                     return;
                 }
-                
-                const result = await response.json();
-                displayResults(result);
-            } catch (error) {
-                showError(`Error: ${error.message}`);
+
+                const data = await res.json();
+                incrementScan();
+                displayResults(data);
+            } catch (err) {
+                showError(`Connection failed: ${err.message}. Is the backend running on ${API_URL}?`);
             }
         });
-        
+
+        /* ===========================================
+           RENDER RESULTS
+           =========================================== */
         function displayResults(data) {
             hideLoading();
-            
-            const verdict = data.verdict;
-            const riskClass = verdict.risk_level.toLowerCase();
-            
+
+            const v = data.verdict;
+            const riskClass = (v.risk_level || 'medium').toLowerCase();
+
+            // Determine emoji for risk level
+            const riskEmoji = {
+                low: '✅',
+                medium: '⚠️',
+                high: '🚨',
+                critical: '🔴'
+            }[riskClass] || '❓';
+
             let html = `
                 <div class="verdict-card ${riskClass}">
-                    <div class="risk-badge ${riskClass}">${verdict.risk_level}</div>
-                    <div class="verdict-title">${verdict.scam_type.replace(/_/g, ' ').toUpperCase()}</div>
-                    <div class="verdict-explanation">${verdict.explanation}</div>
-                    <div class="recommendation">📌 ${verdict.recommendation}</div>
+                    <div class="verdict-header">
+                        <span class="risk-badge ${riskClass}">
+                            <span class="risk-badge-dot"></span>
+                            ${esc(v.risk_level)}
+                        </span>
+                        <span class="verdict-type">${esc((v.scam_type || '').replace(/_/g, ' '))}</span>
+                    </div>
+
+                    <div class="verdict-explain">${esc(v.explanation)}</div>
+
+                    <div class="verdict-rec">
+                        <span class="verdict-rec-icon">📌</span>
+                        <span>${esc(v.recommendation)}</span>
+                    </div>
             `;
-            
-            if (verdict.red_flags && verdict.red_flags.length > 0) {
-                html += '<div class="red-flags"><h4>⚠️ Red Flags:</h4>';
-                verdict.red_flags.forEach(flag => {
-                    html += `<div class="flag-item">${escapeHtml(flag)}</div>`;
+
+            // Red flags
+            if (v.red_flags && v.red_flags.length > 0) {
+                html += `<div class="red-flags-title">⚠ Red Flags</div>`;
+                v.red_flags.forEach(flag => {
+                    html += `
+                        <div class="flag-chip">
+                            <span class="flag-chip-icon">▸</span>
+                            ${esc(flag)}
+                        </div>`;
                 });
-                html += '</div>';
             }
-            
+
+            // Decoded content (transparency)
             html += `
-                    <div class="decoded-content">
-                        <div class="decoded-label">🔍 Decoded Content (${data.content_type}):</div>
-                        ${escapeHtml(data.decoded_content)}
+                    <div class="decoded-section">
+                        <div class="decoded-label">🔍 Decoded Content (${esc(data.content_type)})</div>
+                        <div class="decoded-content">${esc(data.decoded_content)}</div>
+            `;
+
+            // Heuristic signals
+            if (data.heuristic_signals && data.heuristic_signals.length > 0) {
+                html += `<div class="heuristic-signals">`;
+                data.heuristic_signals.forEach(sig => {
+                    html += `
+                        <div class="signal-item">
+                            <span class="signal-icon">◆</span>
+                            ${esc(sig)}
+                        </div>`;
+                });
+                html += `</div>`;
+            }
+
+            html += `
                     </div>
                 </div>
             `;
-            
+
             document.getElementById('verdictContainer').innerHTML = html;
             document.getElementById('results').classList.add('show');
         }
-        
-        document.getElementById('resetButton').addEventListener('click', () => {
+
+        /* ===========================================
+           RESET
+           =========================================== */
+        document.getElementById('resetBtn').addEventListener('click', () => {
             document.getElementById('results').classList.remove('show');
             document.getElementById('verdictContainer').innerHTML = '';
-            imageInput.value = '';
+            clearFile();
             document.getElementById('linkInput').value = '';
             hideError();
         });
-        
+
+        /* ===========================================
+           HELPERS
+           =========================================== */
         function showLoading() {
-            document.getElementById('loading').style.display = 'block';
+            document.getElementById('loading').classList.add('show');
             document.getElementById('results').classList.remove('show');
         }
-        
+
         function hideLoading() {
-            document.getElementById('loading').style.display = 'none';
+            document.getElementById('loading').classList.remove('show');
         }
-        
-        function showError(message) {
-            const errorDiv = document.getElementById('errorMessage');
-            errorDiv.textContent = message;
-            errorDiv.style.display = 'block';
+
+        function showError(msg) {
+            const el = document.getElementById('errorMsg');
+            el.textContent = msg;
+            el.classList.add('show');
             hideLoading();
         }
-        
+
         function hideError() {
-            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('errorMsg').classList.remove('show');
         }
-        
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+
+        function esc(text) {
+            if (!text) return '';
+            const d = document.createElement('div');
+            d.textContent = String(text);
+            return d.innerHTML;
         }
     </script>
 </body>

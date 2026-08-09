@@ -3,10 +3,11 @@ Phase 7: Demo Preparation and Test Suite
 Test QR decoding with sample data before live demo
 """
 import sys
+import os
 from pathlib import Path
 
 # Add backend to path
-sys.path.insert(0, str(Path(__file__).parent / 'backend'))
+sys.path.insert(0, str(Path(__file__).parent.parent / 'backend'))
 
 from qr_decoder import QRDecoder
 from heuristics import HeuristicAnalyzer
@@ -20,13 +21,32 @@ def test_phase_1_qr_decoding():
     print("=" * 60)
     
     decoder = QRDecoder()
-    
-    # Test 1: Direct text decoding (simulating a decoded QR)
     print("\n✓ QR Decoder initialized")
-    print("  - decode_from_file(path) - reads image and decodes QR")
-    print("  - decode_from_bytes(bytes) - decodes from raw image bytes")
-    print("\n  Note: To test with actual QR images, provide test JPG/PNG files")
-    print("  containing QR codes to the tests/ folder\n")
+    
+    # Test with generated QR images if available
+    qr_dir = Path(__file__).parent / "qr_images"
+    if qr_dir.exists():
+        expected = {
+            "legitimate_upi.png": "upi://pay?pa=merchant@okhdfcbank&pn=CafeBliss&am=150",
+            "legitimate_url.png": "https://paypal.com/checkout",
+            "suspicious_url.png": "https://paytm-verify.xyz/secure/login",
+            "suspicious_upi.png": "upi://pay?pa=xk29z@gmail.com&pn=Verify&am=999",
+        }
+        
+        for filename, expected_content in expected.items():
+            filepath = qr_dir / filename
+            if filepath.exists():
+                result = decoder.decode_from_file(str(filepath))
+                status = "✓" if result == expected_content else "✗"
+                print(f"\n  {status} {filename}")
+                print(f"    Expected: {expected_content}")
+                print(f"    Got:      {result}")
+            else:
+                print(f"\n  ⚠ {filename} not found — run generate_test_qr.py first")
+    else:
+        print("\n  ⚠ No test QR images found")
+        print("    Run: python tests/generate_test_qr.py")
+    print()
 
 
 def test_phase_2_heuristics():
@@ -37,7 +57,6 @@ def test_phase_2_heuristics():
     
     analyzer = HeuristicAnalyzer()
     
-    # Test with legitimate UPI
     test_cases = [
         ("upi://pay?pa=merchant@okhdfcbank&pn=PaytmQR&am=100", "Legitimate UPI"),
         ("upi://pay?pa=randomuser123@gmail.com&pn=Merchant&am=500", "Suspicious UPI"),
@@ -57,24 +76,24 @@ def test_phase_2_heuristics():
 
 
 def test_phase_3_ai_analysis():
-    """Test AI analysis (requires ANTHROPIC_API_KEY)"""
+    """Test AI analysis (requires GOOGLE_API_KEY)"""
     print("\n" + "=" * 60)
     print("PHASE 3: AI ANALYSIS TEST")
     print("=" * 60)
     
-    print("\n⚠️  Requires ANTHROPIC_API_KEY environment variable")
-    print("   Set: export ANTHROPIC_API_KEY='your-key-here'")
+    print("\n⚠️  Requires GOOGLE_API_KEY environment variable")
+    print("   Set: export GOOGLE_API_KEY='your-key-here'")
+    print("   Get free key: https://aistudio.google.com/app/apikeys")
     
     try:
         ai = AIAnalyzer()
         heuristics = HeuristicAnalyzer()
         
-        # Quick test
         content = "https://secure-paypal-verify.tk/login"
         heuristics_result = heuristics.analyze(content)
         
         print(f"\n📋 Test content: {content}")
-        print("   Analyzing with Claude...")
+        print("   Analyzing with Gemini...")
         
         verdict = ai.analyze(content, heuristics_result)
         
@@ -85,7 +104,7 @@ def test_phase_3_ai_analysis():
         
     except Exception as e:
         print(f"\n   ✗ Error: {e}")
-        print("     Make sure ANTHROPIC_API_KEY is set")
+        print("     Make sure GOOGLE_API_KEY is set")
 
 
 def test_complete_pipeline():
@@ -120,7 +139,7 @@ def print_demo_checklist():
         ("Setup", [
             "Get free Gemini API key: https://aistudio.google.com/app/apikeys",
             "Edit .env and set GOOGLE_API_KEY=<your-key>",
-            "Run: docker-compose up",
+            "Run: docker-compose up --build",
             "Wait for both services to be healthy",
             "Open: http://localhost:3000",
         ]),
@@ -153,7 +172,6 @@ def print_demo_checklist():
 if __name__ == "__main__":
     print("\n" + "🛡️  QUISHGUARD - TEST SUITE" + "\n")
     
-    # Run tests
     test_phase_1_qr_decoding()
     test_phase_2_heuristics()
     test_phase_3_ai_analysis()
@@ -164,6 +182,6 @@ if __name__ == "__main__":
     print("To start the application:")
     print("  1. Get free key: https://aistudio.google.com/app/apikeys")
     print("  2. Edit .env, set GOOGLE_API_KEY")
-    print("  3. Run: docker-compose up")
+    print("  3. Run: docker-compose up --build")
     print("  4. Open: http://localhost:3000")
     print("=" * 60 + "\n")

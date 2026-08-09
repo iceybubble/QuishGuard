@@ -18,7 +18,7 @@ echo.
 
 REM Start services
 echo Starting Docker containers...
-docker-compose up
+docker-compose up --build
 
 echo.
 echo 🎉 QuishGuard is running!

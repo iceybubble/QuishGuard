@@ -3,34 +3,40 @@ Phase 3: AI Reasoning Layer
 Use Google Gemini to analyze decoded content + heuristics and provide fraud verdict
 """
 import json
+import os
+import re
 from typing import Dict, Any, Optional
-import google.generativeai as genai
+from google import genai
+
 
 class AIAnalyzer:
     """Use Google Gemini to perform fraud analysis reasoning"""
-    
+
     def __init__(self, api_key: Optional[str] = None):
-        """Initialize Google Generative AI client"""
-        import os
+        """Initialize Google GenAI client"""
         key = api_key or os.getenv('GOOGLE_API_KEY')
         if key:
-            genai.configure(api_key=key)
-    
+            self.client = genai.Client(api_key=key)
+        else:
+            self.client = None
+
     def analyze(self, decoded_content: str, heuristics: Dict[str, Any]) -> Dict[str, Any]:
         """
         Send decoded content + heuristics to Gemini for fraud analysis.
-        
+
         Args:
             decoded_content: Raw decoded string from QR
             heuristics: Output from HeuristicAnalyzer.analyze()
-            
+
         Returns:
             Structured verdict with scam_type, risk_level, explanation, red_flags
         """
-        
+        if not self.client:
+            return self._error_verdict("GOOGLE_API_KEY not configured")
+
         # Build context for Gemini
         signals_text = "\n".join([f"- {signal}" for signal in heuristics.get('extracted_signals', [])])
-        
+
         prompt = f"""You are a fraud detection expert analyzing QR codes in India, specifically focused on UPI payment fraud and phishing scams.
 
 A QR code was scanned with the following details:
@@ -64,29 +70,41 @@ Example response format:
 
 Analyze and respond with valid JSON only."""
 
-        try:
-            model = genai.GenerativeModel('gemini-pro')
-            response = model.generate_content(prompt)
-            response_text = response.text
-            
-            # Parse JSON from response
+        # Try models in order of preference (handles per-model rate limits)
+        models = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash']
+
+        for model_name in models:
             try:
-                verdict = json.loads(response_text)
-                return self._validate_verdict(verdict)
-            except json.JSONDecodeError:
-                # Try to extract JSON if wrapped in other text
-                import re
-                json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-                if json_match:
-                    verdict = json.loads(json_match.group())
+                response = self.client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                )
+                response_text = response.text
+
+                # Parse JSON from response
+                try:
+                    verdict = json.loads(response_text)
                     return self._validate_verdict(verdict)
-                else:
-                    return self._error_verdict("Could not parse AI response as JSON")
-                    
-        except Exception as e:
-            print(f"Error calling Claude API: {e}")
-            return self._error_verdict(f"API Error: {str(e)}")
-    
+                except json.JSONDecodeError:
+                    # Try to extract JSON if wrapped in markdown code fences or other text
+                    json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+                    if json_match:
+                        verdict = json.loads(json_match.group())
+                        return self._validate_verdict(verdict)
+                    else:
+                        return self._error_verdict("Could not parse AI response as JSON")
+
+            except Exception as e:
+                error_str = str(e)
+                print(f"Error calling Gemini ({model_name}): {e}")
+                # If rate limited, try next model
+                if '429' in error_str or 'RESOURCE_EXHAUSTED' in error_str:
+                    continue
+                # For other errors, don't retry
+                return self._error_verdict(f"API Error: {error_str}")
+
+        return self._error_verdict("All Gemini models rate-limited. Please retry in a minute.")
+
     def _validate_verdict(self, verdict: Dict[str, Any]) -> Dict[str, Any]:
         """Validate verdict has required fields with valid values"""
         required_fields = ['scam_type', 'risk_level', 'explanation', 'red_flags', 'recommendation']
@@ -94,22 +112,22 @@ Analyze and respond with valid JSON only."""
         for field in required_fields:
             if field not in verdict:
                 verdict[field] = None
-        
+
         # Validate enum values
         valid_scam_types = ['upi_fraud', 'phishing', 'malware', 'suspicious_app', 'legitimate', 'unknown']
         if verdict['scam_type'] not in valid_scam_types:
             verdict['scam_type'] = 'unknown'
-        
+
         valid_risk_levels = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
         if verdict['risk_level'] not in valid_risk_levels:
             verdict['risk_level'] = 'MEDIUM'
-        
+
         # Ensure red_flags is a list
         if not isinstance(verdict['red_flags'], list):
             verdict['red_flags'] = []
-        
+
         return verdict
-    
+
     def _error_verdict(self, error_msg: str) -> Dict[str, Any]:
         """Return a safe error verdict"""
         return {
@@ -123,10 +141,10 @@ Analyze and respond with valid JSON only."""
 
 if __name__ == "__main__":
     from heuristics import HeuristicAnalyzer
-    
+
     analyzer = AIAnalyzer()
     heuristics = HeuristicAnalyzer()
-    
+
     # Test with suspicious UPI
     test_content = "upi://pay?pa=randomuser123@okhdfcbank&pn=Merchant&am=500"
     heuristics_result = heuristics.analyze(test_content)

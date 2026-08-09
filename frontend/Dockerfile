@@ -1,13 +1,12 @@
-# Frontend Dockerfile - Simple static file server
-FROM python:3.11-slim
-
-WORKDIR /app
+# Frontend Dockerfile - nginx static file server
+FROM nginx:alpine
 
 # Copy frontend files
-COPY index.html .
+COPY index.html /usr/share/nginx/html/
 
-# Expose port
-EXPOSE 3000
+# Copy nginx config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Simple Python HTTP server to serve the static files
-CMD ["python", "-m", "http.server", "3000"]
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
