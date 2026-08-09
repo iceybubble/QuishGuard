@@ -63,6 +63,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set API_URL in frontend
+        run: |
+          echo "Replacing API_URL in frontend/index.html with BACKEND_URL secret if set"
+          if [ -n "${{ secrets.BACKEND_URL }}" ]; then
+            sed -i "s|let API_URL = 'http://localhost:8000';|let API_URL = '${{ secrets.BACKEND_URL }}';|" frontend/index.html || true
+            echo "Replaced API_URL with secret BACKEND_URL"
+          else
+            echo "No BACKEND_URL secret set; leaving default API_URL"
+          fi
+
       - name: Deploy Frontend to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
