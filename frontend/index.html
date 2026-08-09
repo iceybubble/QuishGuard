@@ -390,6 +390,8 @@
         } catch (e) {
             // Environment not available, use default
         }
+        // Helpful debug: show resolved API_URL in console
+        console.log('QuishGuard: resolved API_URL =', API_URL);
         
         // Tab switching
         document.querySelectorAll('.tab-button').forEach(button => {
@@ -442,8 +444,11 @@
             try {
                 const formData = new FormData();
                 formData.append('file', file);
-                
-                const response = await fetch(`${API_URL}/analyze`, {
+
+                const requestUrl = `${API_URL}/analyze`;
+                console.log('QuishGuard: POST', requestUrl);
+
+                const response = await fetch(requestUrl, {
                     method: 'POST',
                     body: formData
                 });
@@ -457,6 +462,7 @@
                 const result = await response.json();
                 displayResults(result);
             } catch (error) {
+                console.error('QuishGuard: fetch error', error);
                 showError(`Error: ${error.message}`);
             }
         }
@@ -474,7 +480,10 @@
             hideError();
             
             try {
-                const response = await fetch(`${API_URL}/analyze-text`, {
+                const requestUrl = `${API_URL}/analyze-text`;
+                console.log('QuishGuard: POST', requestUrl);
+
+                const response = await fetch(requestUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
